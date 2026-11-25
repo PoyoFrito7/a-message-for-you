@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,28 +20,28 @@
       overflow: hidden;
     }
 
-    /* Subtle starry background */
-    body::before {
-      content: "";
+    /* Individual glowing stars */
+
+    .star {
       position: fixed;
-      inset: 0;
+      background: white;
+      border-radius: 50%;
       pointer-events: none;
-      background-image:
-        radial-gradient(1px 1px at 10% 20%, white 50%, transparent),
-        radial-gradient(1px 1px at 80% 30%, white 50%, transparent),
-        radial-gradient(1px 1px at 40% 70%, white 50%, transparent),
-        radial-gradient(1px 1px at 70% 85%, white 50%, transparent),
-        radial-gradient(1px 1px at 25% 90%, white 50%, transparent),
-        radial-gradient(1px 1px at 90% 60%, white 50%, transparent);
-      background-size: 300px 300px;
-      opacity: 0.5;
-      animation: twinkle 5s infinite alternate;
+      box-shadow: 0 0 6px rgba(190, 220, 255, 0.8);
+      animation: twinkle infinite ease-in-out;
     }
 
     @keyframes twinkle {
-      from { opacity: 0.2; }
-      to { opacity: 0.7; }
+      0%, 100% {
+        opacity: 0.03;
+      }
+
+      50% {
+        opacity: 0.85;
+      }
     }
+
+    /* Opening screen */
 
     .intro {
       position: absolute;
@@ -92,12 +91,14 @@
     }
 
     /* Area where messages appear */
+
     .message-area {
       position: absolute;
-      inset: 12% 5%;
+      inset: 5% 5%;
       display: none;
-      max-width: 1000px;
+      max-width: 1600px;
       margin: auto;
+      z-index: 1;
     }
 
     .message-area.active {
@@ -106,11 +107,12 @@
 
     .floating-message {
       position: absolute;
-      width: min(65%, 400px);
+      width: min(35%, 400px);
       padding: 12px;
       text-align: center;
       color: #ffffff;
       opacity: 0;
+      transform: translate(-50%, -50%);
       animation: messageLife 10s ease forwards;
     }
 
@@ -130,30 +132,35 @@
     @keyframes messageLife {
       0% {
         opacity: 0;
-        transform: translateY(12px);
+        transform: translate(-50%, calc(-50% + 12px));
       }
+
       20% {
         opacity: 1;
-        transform: translateY(0);
+        transform: translate(-50%, -50%);
       }
+
       75% {
         opacity: 1;
-        transform: translateY(0);
+        transform: translate(-50%, -50%);
       }
+
       100% {
         opacity: 0;
-        transform: translateY(-8px);
+        transform: translate(-50%, calc(-50% - 8px));
       }
     }
 
+    /* Mobile compatibility */
+
     @media (max-width: 600px) {
       .message-area {
-        inset: 10% 3%;
+        inset: 5% 3%;
       }
 
       .floating-message {
         width: 90%;
-        left: 5% !important;
+        left: 50% !important;
       }
 
       .floating-message p {
@@ -174,8 +181,34 @@
   <div class="message-area" id="messageArea"></div>
 
   <script>
-    // Temporary example messages.
-    // Later, we will replace these with messages from your friends.
+
+    /* Create individual stars */
+
+    const starCount = 35;
+
+    for (let i = 0; i < starCount; i++) {
+      const star = document.createElement("div");
+
+      star.className = "star";
+
+      star.style.left = Math.random() * 100 + "%";
+      star.style.top = Math.random() * 100 + "%";
+
+      const size = 0.8 + Math.random() * 1.2;
+
+      star.style.width = size + "px";
+      star.style.height = size + "px";
+
+      star.style.animationDuration =
+        (4 + Math.random() * 8) + "s";
+
+      star.style.animationDelay =
+        (-Math.random() * 12) + "s";
+
+      document.body.appendChild(star);
+    }
+
+    /* Temporary example messages */
 
     const messages = [
       {
@@ -204,19 +237,39 @@
       }
     ];
 
+    /* Message positions across the screen */
+
     const positions = [
-      { top: "5%", left: "5%" },
-      { top: "32%", left: "35%" },
-      { top: "62%", left: "10%" },
-      { top: "15%", left: "48%" }
+      { top: "18%", left: "24%" },
+      { top: "48%", left: "76%" },
+      { top: "82%", left: "35%" },
+      { top: "18%", left: "76%" },
+      { top: "50%", left: "25%" },
+      { top: "82%", left: "76%" },
+      { top: "18%", left: "35%" },
+      { top: "50%", left: "65%" }
+    ];
+
+    const mobilePositions = [
+      { top: "12%", left: "50%" },
+      { top: "37%", left: "50%" },
+      { top: "62%", left: "50%" },
+      { top: "87%", left: "50%" }
     ];
 
     let currentMessage = 0;
+    let currentPosition = 0;
+    let started = false;
 
     function beginMessages() {
+
+      if (started) return;
+      started = true;
+
       document.getElementById("intro").classList.add("hidden");
 
       const area = document.getElementById("messageArea");
+
       area.classList.add("active");
 
       showNextMessage();
@@ -225,33 +278,52 @@
     }
 
     function showNextMessage() {
+
       const area = document.getElementById("messageArea");
+
       const message = messages[currentMessage];
-      const position = positions[currentMessage % positions.length];
+
+      const availablePositions =
+        window.innerWidth <= 600
+        ? mobilePositions
+        : positions;
+
+      const position =
+        availablePositions[
+          currentPosition % availablePositions.length
+        ];
 
       const card = document.createElement("div");
+
       card.className = "floating-message";
 
       card.style.top = position.top;
       card.style.left = position.left;
 
       const messageText = document.createElement("p");
+
       messageText.textContent = message.text;
 
       const sender = document.createElement("div");
+
       sender.className = "sender";
       sender.textContent = "— " + message.sender;
 
       card.appendChild(messageText);
       card.appendChild(sender);
+
       area.appendChild(card);
 
       setTimeout(() => {
         card.remove();
       }, 10000);
 
-      currentMessage = (currentMessage + 1) % messages.length;
+      currentMessage =
+        (currentMessage + 1) % messages.length;
+
+      currentPosition++;
     }
+
   </script>
 
 </body>
