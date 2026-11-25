@@ -1,0 +1,102 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Message For You</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background-color: #050711;
+      color: white;
+      font-family: Georgia, serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      overflow: hidden;
+
+      background-image:
+        radial-gradient(white 1px, transparent 1px),
+        radial-gradient(#8295c7 1px, transparent 1px);
+
+      background-size: 90px 90px, 140px 140px;
+      background-position: 0 0, 45px 60px;
+    }
+
+    .container {
+      padding: 30px;
+      max-width: 600px;
+    }
+
+    h1 {
+      font-size: 42px;
+      font-weight: normal;
+      letter-spacing: 2px;
+    }
+
+    p {
+      color: #b8c5e5;
+      font-size: 18px;
+      line-height: 1.8;
+    }
+
+    button {
+      margin-top: 25px;
+      padding: 12px 30px;
+      background: transparent;
+      border: 1px solid #8295c7;
+      color: white;
+      font-size: 15px;
+      cursor: pointer;
+      letter-spacing: 2px;
+    }
+
+    button:hover {
+      background: #8295c7;
+      color: #050711;
+    }
+
+    #message {
+      opacity: 0;
+      transition: opacity 2s ease;
+    }
+
+    #message.show {
+      opacity: 1;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container">
+
+    <h1>A Message For You</h1>
+
+    <p>
+      Somewhere, someone is cheering for you.
+    </p>
+
+    <button onclick="showMessage()">
+      BEGIN
+    </button>
+
+    <p id="message">
+      You are not alone. Keep moving forward.
+    </p>
+
+  </div>
+
+  <script>
+    function showMessage() {
+      document.getElementById("message")
+        .classList.add("show");
+    }
+  </script>
+
+</body>
+</html>
