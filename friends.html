@@ -1,0 +1,450 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A Message For You</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #000000;
+      color: white;
+      font-family: Georgia, serif;
+    }
+
+    /* Individual glowing stars */
+
+    .star {
+      position: fixed;
+      background: white;
+      border-radius: 50%;
+      pointer-events: none;
+      box-shadow: 0 0 6px rgba(190, 220, 255, 0.8);
+      animation: twinkle infinite ease-in-out;
+      z-index: 0;
+    }
+
+    @keyframes twinkle {
+      0%, 100% {
+        opacity: 0.03;
+      }
+
+      50% {
+        opacity: 0.85;
+      }
+    }
+
+    /* Full-screen sections */
+
+    .screen {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: safe center;
+      align-items: center;
+      text-align: center;
+      padding: 30px 24px;
+      transition: opacity 1.5s ease,
+                  visibility 1.5s ease;
+      overflow-y: auto;
+      z-index: 2;
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
+      font-weight: normal;
+      letter-spacing: 3px;
+    }
+
+    h2 {
+      font-size: clamp(1.6rem, 4vw, 2.6rem);
+      font-weight: normal;
+      letter-spacing: 2px;
+      line-height: 1.5;
+    }
+
+    p {
+      color: #b8c9d8;
+      font-size: 1rem;
+      line-height: 1.8;
+      max-width: 650px;
+    }
+
+    /* Opening choices */
+
+    .choices {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 30px;
+      margin-top: 35px;
+      width: 100%;
+    }
+
+    .choice {
+      width: min(100%, 440px);
+    }
+
+    .choice button {
+      width: 100%;
+    }
+
+    .choice p {
+      font-size: 0.85rem;
+      margin-top: 12px;
+    }
+
+    /* Buttons */
+
+    button {
+      padding: 14px 28px;
+      color: white;
+      background: transparent;
+      border: 1px solid #a9c7df;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 0.95rem;
+      letter-spacing: 2px;
+      line-height: 1.5;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: rgba(169, 199, 223, 0.15);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button:disabled:hover {
+      background: transparent;
+    }
+
+    .back-button {
+      margin-top: 25px;
+      border: none;
+      color: #a9c7df;
+      font-size: 0.8rem;
+    }
+
+    /* Writing boxes */
+
+    .writing-form {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: min(100%, 600px);
+      gap: 15px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      padding: 18px;
+      background: rgba(8, 12, 18, 0.7);
+      border: 1px solid #526777;
+      color: white;
+      font-family: inherit;
+      font-size: 1rem;
+      line-height: 1.7;
+      border-radius: 0;
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+    }
+
+    input::placeholder,
+    textarea::placeholder {
+      color: #8d9fac;
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: none;
+      border-color: #a9c7df;
+      box-shadow: 0 0 15px rgba(169, 199, 223, 0.1);
+    }
+
+    .small-note {
+      color: #8294a2;
+      font-size: 0.8rem;
+      line-height: 1.6;
+      margin-top: 15px;
+    }
+
+    .character-count {
+      width: 100%;
+      text-align: right;
+      color: #8294a2;
+      font-size: 0.75rem;
+    }
+
+    /* Mobile compatibility */
+
+    @media (max-width: 600px) {
+
+      .screen {
+        padding: 24px 18px;
+      }
+
+      button {
+        font-size: 0.8rem;
+        padding: 12px 18px;
+      }
+
+      textarea {
+        min-height: 140px;
+      }
+
+      .choices {
+        gap: 20px;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+
+      .star {
+        animation: none;
+        opacity: 0.4;
+      }
+
+      .screen {
+        transition: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Friends' opening screen -->
+
+  <div class="screen" id="home">
+
+    <h1>A Message For You</h1>
+
+    <p>
+      A little kindness can travel further than you imagine.
+    </p>
+
+    <div class="choices">
+
+      <div class="choice">
+
+        <button onclick="showScreen('personal')">
+          LEAVE A MESSAGE FOR HIM
+        </button>
+
+        <p>
+          Something meant especially for him.
+        </p>
+
+      </div>
+
+      <div class="choice">
+
+        <button onclick="showScreen('community')">
+          LEAVE A MESSAGE FOR THE WORLD
+        </button>
+
+        <p>
+          Something someone, somewhere might need to hear.
+        </p>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Personal message for him -->
+
+  <div class="screen hidden" id="personal">
+
+    <h2>A message for him.</h2>
+
+    <div class="writing-form">
+
+      <input
+        type="text"
+        id="personalName"
+        aria-label="Your display name"
+        placeholder="Your name, nickname or Steam username"
+        maxlength="50"
+        autocomplete="off"
+      >
+
+      <textarea
+        id="personalMessage"
+        aria-label="Your message for him"
+        placeholder="What would you like him to hear?"
+        maxlength="1500"
+        oninput="updateCount('personalMessage', 'personalCount')"
+      ></textarea>
+
+      <div class="character-count" id="personalCount">
+        0 / 1500
+      </div>
+
+      <p>
+        Your message will be part of his personal gift.
+      </p>
+
+      <button disabled>
+        SEND TO HIM
+      </button>
+
+    </div>
+
+    <button
+      class="back-button"
+      onclick="showScreen('home')"
+    >
+      BACK
+    </button>
+
+    <div class="small-note">
+      Preview only. Messages are not saved yet.
+    </div>
+
+  </div>
+
+  <!-- Message for the world -->
+
+  <div class="screen hidden" id="community">
+
+    <h2>One difference can change anything</h2>
+
+    <div class="writing-form">
+
+      <input
+        type="text"
+        id="communityName"
+        aria-label="Your public display name"
+        placeholder="Your name, nickname or Steam username"
+        maxlength="50"
+        autocomplete="off"
+      >
+
+      <textarea
+        id="communityMessage"
+        aria-label="Your message for the world"
+        placeholder="What's something you would tell your old, current, future self?"
+        maxlength="1500"
+        oninput="updateCount('communityMessage', 'communityCount')"
+      ></textarea>
+
+      <div class="character-count" id="communityCount">
+        0 / 1500
+      </div>
+
+      <p>
+        Someone, somewhere might just need to hear that.
+        Share it here.
+      </p>
+
+      <button disabled>
+        SHARE WITH THE WORLD
+      </button>
+
+    </div>
+
+    <button
+      class="back-button"
+      onclick="showScreen('home')"
+    >
+      BACK
+    </button>
+
+    <div class="small-note">
+      Preview only. Messages are not saved yet.
+    </div>
+
+  </div>
+
+  <script>
+
+    /* Create individual stars */
+
+    const starCount = 35;
+
+    for (let i = 0; i < starCount; i++) {
+
+      const star = document.createElement("div");
+
+      star.className = "star";
+
+      star.style.left = Math.random() * 100 + "%";
+      star.style.top = Math.random() * 100 + "%";
+
+      const size = 0.8 + Math.random() * 1.2;
+
+      star.style.width = size + "px";
+      star.style.height = size + "px";
+
+      star.style.animationDuration =
+        (4 + Math.random() * 8) + "s";
+
+      star.style.animationDelay =
+        (-Math.random() * 12) + "s";
+
+      document.body.appendChild(star);
+    }
+
+    /* Switch between screens */
+
+    function showScreen(screenId) {
+
+      const screens =
+        document.querySelectorAll(".screen");
+
+      screens.forEach(screen => {
+
+        screen.classList.add("hidden");
+
+      });
+
+      const nextScreen =
+        document.getElementById(screenId);
+
+      nextScreen.classList.remove("hidden");
+
+      nextScreen.scrollTop = 0;
+    }
+
+    /* Update character counters */
+
+    function updateCount(inputId, countId) {
+
+      const input =
+        document.getElementById(inputId);
+
+      const counter =
+        document.getElementById(countId);
+
+      counter.textContent =
+        input.value.length + " / " + input.maxLength;
+    }
+
+  </script>
+
+</body>
+</html>
