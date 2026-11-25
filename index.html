@@ -41,9 +41,9 @@
       }
     }
 
-    /* Opening screen */
+    /* Full-screen sections */
 
-    .intro {
+    .screen {
       position: absolute;
       inset: 0;
       display: flex;
@@ -52,9 +52,19 @@
       align-items: center;
       text-align: center;
       padding: 24px;
-      transition: opacity 1.5s ease;
+      transition: opacity 1.5s ease,
+                  visibility 1.5s ease;
       z-index: 2;
+      overflow-y: auto;
     }
+
+    .screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    /* Opening screen */
 
     .intro h1 {
       font-size: clamp(2rem, 6vw, 3.5rem);
@@ -67,6 +77,8 @@
       font-size: 1rem;
       letter-spacing: 1px;
     }
+
+    /* Buttons */
 
     button {
       margin-top: 35px;
@@ -85,12 +97,14 @@
       background: rgba(169, 199, 223, 0.15);
     }
 
-    .intro.hidden {
-      opacity: 0;
-      pointer-events: none;
+    .button-group {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
     }
 
-    /* Area where messages appear */
+    /* Floating messages */
 
     .message-area {
       position: absolute;
@@ -151,6 +165,56 @@
       }
     }
 
+    /* Closing screen */
+
+    .ending h2,
+    .writing h2 {
+      font-size: clamp(1.6rem, 4vw, 2.6rem);
+      font-weight: normal;
+      letter-spacing: 2px;
+      line-height: 1.5;
+    }
+
+    .ending p,
+    .writing p {
+      color: #b8c9d8;
+      font-size: 1rem;
+      line-height: 1.8;
+      max-width: 650px;
+    }
+
+    /* Temporary writing screen */
+
+    .writing textarea {
+      width: min(90%, 600px);
+      min-height: 160px;
+      padding: 20px;
+      margin: 20px 0;
+      background: rgba(8, 12, 18, 0.7);
+      border: 1px solid #526777;
+      color: white;
+      font-family: inherit;
+      font-size: 1rem;
+      line-height: 1.7;
+      resize: vertical;
+    }
+
+    .writing textarea::placeholder {
+      color: #8d9fac;
+    }
+
+    .writing textarea:focus {
+      outline: none;
+      border-color: #a9c7df;
+      box-shadow: 0 0 15px rgba(169, 199, 223, 0.1);
+    }
+
+    .preview-note {
+      color: #8294a2;
+      font-size: 0.8rem;
+      margin-top: 20px;
+    }
+
     /* Mobile compatibility */
 
     @media (max-width: 600px) {
@@ -166,19 +230,89 @@
       .floating-message p {
         font-size: 1rem;
       }
+
+      .button-group {
+        gap: 12px;
+      }
+
+      button {
+        padding: 12px 20px;
+        font-size: 0.85rem;
+      }
+
+      .writing {
+        justify-content: safe center;
+      }
     }
   </style>
 </head>
 
 <body>
 
-  <div class="intro" id="intro">
+  <!-- Opening screen -->
+
+  <div class="screen intro" id="intro">
     <h1>A Message For You</h1>
+
     <p>Somewhere, someone is cheering for you.</p>
-    <button onclick="beginMessages()">BEGIN</button>
+
+    <button onclick="beginMessages()">
+      BEGIN
+    </button>
   </div>
 
+  <!-- Floating messages -->
+
   <div class="message-area" id="messageArea"></div>
+
+  <!-- Replay and Continue screen -->
+
+  <div class="screen ending hidden" id="ending">
+
+    <h2>You've received a little kindness.</h2>
+
+    <p>Now, it's your turn to leave some behind.</p>
+
+    <div class="button-group">
+
+      <button onclick="beginMessages()">
+        REPLAY
+      </button>
+
+      <button onclick="openWriting()">
+        CONTINUE
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- Temporary writing screen -->
+
+  <div class="screen writing hidden" id="writing">
+
+    <h2>One difference can change anything</h2>
+
+    <textarea
+      id="practiceMessage"
+      aria-label="Practice message"
+      placeholder="What's something you would tell your old, current, future self?"
+    ></textarea>
+
+    <p>
+      Someone, somewhere might just need to hear that.
+      Share it here.
+    </p>
+
+    <button onclick="backToEnding()">
+      BACK
+    </button>
+
+    <div class="preview-note">
+      Preview only. Messages are not saved yet.
+    </div>
+
+  </div>
 
   <script>
 
@@ -187,6 +321,7 @@
     const starCount = 35;
 
     for (let i = 0; i < starCount; i++) {
+
       const star = document.createElement("div");
 
       star.className = "star";
@@ -237,7 +372,7 @@
       }
     ];
 
-    /* Message positions across the screen */
+    /* Desktop message positions */
 
     const positions = [
       { top: "18%", left: "24%" },
@@ -250,6 +385,8 @@
       { top: "50%", left: "65%" }
     ];
 
+    /* Mobile message positions */
+
     const mobilePositions = [
       { top: "12%", left: "50%" },
       { top: "37%", left: "50%" },
@@ -257,29 +394,59 @@
       { top: "87%", left: "50%" }
     ];
 
+    /* Message timing */
+
+    const messageDuration = 10000;
+    const messageInterval = 3000;
+    const endingPause = 2000;
+
     let currentMessage = 0;
     let currentPosition = 0;
-    let started = false;
+    let playing = false;
+
+    /* Show or hide screens */
+
+    function hideScreens() {
+
+      document.getElementById("intro")
+        .classList.add("hidden");
+
+      document.getElementById("ending")
+        .classList.add("hidden");
+
+      document.getElementById("writing")
+        .classList.add("hidden");
+    }
+
+    /* Begin or replay the experience */
 
     function beginMessages() {
 
-      if (started) return;
-      started = true;
+      if (playing) return;
 
-      document.getElementById("intro").classList.add("hidden");
+      playing = true;
 
-      const area = document.getElementById("messageArea");
+      currentMessage = 0;
+      currentPosition = 0;
+
+      hideScreens();
+
+      const area =
+        document.getElementById("messageArea");
+
+      area.replaceChildren();
 
       area.classList.add("active");
 
       showNextMessage();
-
-      setInterval(showNextMessage, 3000);
     }
+
+    /* Display the next message */
 
     function showNextMessage() {
 
-      const area = document.getElementById("messageArea");
+      const area =
+        document.getElementById("messageArea");
 
       const message = messages[currentMessage];
 
@@ -300,13 +467,16 @@
       card.style.top = position.top;
       card.style.left = position.left;
 
-      const messageText = document.createElement("p");
+      const messageText =
+        document.createElement("p");
 
       messageText.textContent = message.text;
 
-      const sender = document.createElement("div");
+      const sender =
+        document.createElement("div");
 
       sender.className = "sender";
+
       sender.textContent = "— " + message.sender;
 
       card.appendChild(messageText);
@@ -316,12 +486,57 @@
 
       setTimeout(() => {
         card.remove();
-      }, 10000);
+      }, messageDuration);
 
-      currentMessage =
-        (currentMessage + 1) % messages.length;
-
+      currentMessage++;
       currentPosition++;
+
+      /* Continue until all messages have played */
+
+      if (currentMessage < messages.length) {
+
+        setTimeout(
+          showNextMessage,
+          messageInterval
+        );
+
+      } else {
+
+        /* Wait for the final message to fade */
+
+        setTimeout(() => {
+
+          area.classList.remove("active");
+
+          area.replaceChildren();
+
+          playing = false;
+
+          document.getElementById("ending")
+            .classList.remove("hidden");
+
+        }, messageDuration + endingPause);
+      }
+    }
+
+    /* Continue to the writing screen */
+
+    function openWriting() {
+
+      hideScreens();
+
+      document.getElementById("writing")
+        .classList.remove("hidden");
+    }
+
+    /* Return to the closing screen */
+
+    function backToEnding() {
+
+      hideScreens();
+
+      document.getElementById("ending")
+        .classList.remove("hidden");
     }
 
   </script>
