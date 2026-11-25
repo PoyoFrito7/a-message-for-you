@@ -1,10 +1,10 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <title>A Message For You</title>
 
   <style>
@@ -18,124 +18,239 @@
       background: #000000;
       color: white;
       font-family: Georgia, serif;
-
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
       overflow: hidden;
     }
 
-    /* Our subtle, glowing stars */
+    /* Subtle starry background */
     body::before {
       content: "";
       position: fixed;
       inset: 0;
       pointer-events: none;
-
-      background:
-        radial-gradient(1px 1px at 12% 22%, white 99%, transparent),
-        radial-gradient(1px 1px at 28% 73%, #b8caff 99%, transparent),
-        radial-gradient(1px 1px at 45% 16%, white 99%, transparent),
-        radial-gradient(1px 1px at 67% 38%, #d6e1ff 99%, transparent),
-        radial-gradient(1px 1px at 83% 78%, white 99%, transparent),
-        radial-gradient(1px 1px at 91% 29%, #b8caff 99%, transparent),
-        radial-gradient(1px 1px at 52% 88%, white 99%, transparent);
-
-      background-repeat: no-repeat;
-
-      animation: twinkle 5s ease-in-out infinite alternate;
+      background-image:
+        radial-gradient(1px 1px at 10% 20%, white 50%, transparent),
+        radial-gradient(1px 1px at 80% 30%, white 50%, transparent),
+        radial-gradient(1px 1px at 40% 70%, white 50%, transparent),
+        radial-gradient(1px 1px at 70% 85%, white 50%, transparent),
+        radial-gradient(1px 1px at 25% 90%, white 50%, transparent),
+        radial-gradient(1px 1px at 90% 60%, white 50%, transparent);
+      background-size: 300px 300px;
+      opacity: 0.5;
+      animation: twinkle 5s infinite alternate;
     }
 
     @keyframes twinkle {
-      0% {
-        opacity: 0.1;
-        filter: drop-shadow(0 0 1px white);
-      }
-
-      50% {
-        opacity: 0.9;
-        filter: drop-shadow(0 0 5px #a9c4ff);
-      }
-
-      100% {
-        opacity: 0.2;
-        filter: drop-shadow(0 0 2px white);
-      }
+      from { opacity: 0.2; }
+      to { opacity: 0.7; }
     }
 
-    .container {
-      position: relative;
-      z-index: 1;
-      padding: 30px;
-      max-width: 600px;
+    .intro {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      transition: opacity 1.5s ease;
+      z-index: 2;
     }
 
-    h1 {
-      font-size: 42px;
+    .intro h1 {
+      font-size: clamp(2rem, 6vw, 3.5rem);
       font-weight: normal;
-      letter-spacing: 2px;
+      letter-spacing: 3px;
     }
 
-    p {
-      color: #c5c5d5;
-      font-size: 18px;
-      line-height: 1.8;
+    .intro p {
+      color: #b8c9d8;
+      font-size: 1rem;
+      letter-spacing: 1px;
     }
 
     button {
-      margin-top: 25px;
-      padding: 12px 30px;
-      background: transparent;
-      border: 1px solid #aab9df;
+      margin-top: 35px;
+      padding: 12px 32px;
       color: white;
-      font-size: 15px;
+      background: transparent;
+      border: 1px solid #a9c7df;
       cursor: pointer;
+      font-family: inherit;
+      font-size: 1rem;
       letter-spacing: 2px;
-      transition: 0.4s ease;
+      transition: background 0.3s ease;
     }
 
     button:hover {
-      background: white;
-      color: black;
-      box-shadow: 0 0 15px #aab9df;
+      background: rgba(169, 199, 223, 0.15);
     }
 
-    #message {
+    .intro.hidden {
       opacity: 0;
-      transition: opacity 2s ease;
+      pointer-events: none;
     }
 
-    #message.show {
-      opacity: 1;
+    /* Area where messages appear */
+    .message-area {
+      position: absolute;
+      inset: 12% 5%;
+      display: none;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    .message-area.active {
+      display: block;
+    }
+
+    .floating-message {
+      position: absolute;
+      width: min(65%, 400px);
+      padding: 12px;
+      text-align: center;
+      color: #ffffff;
+      opacity: 0;
+      animation: messageLife 10s ease forwards;
+    }
+
+    .floating-message p {
+      font-size: clamp(1rem, 2vw, 1.3rem);
+      line-height: 1.7;
+      margin: 0 0 12px;
+      text-shadow: 0 0 12px rgba(160, 205, 255, 0.5);
+    }
+
+    .floating-message .sender {
+      font-size: 0.85rem;
+      color: #a9c7df;
+      letter-spacing: 1px;
+    }
+
+    @keyframes messageLife {
+      0% {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      20% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      75% {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .message-area {
+        inset: 10% 3%;
+      }
+
+      .floating-message {
+        width: 90%;
+        left: 5% !important;
+      }
+
+      .floating-message p {
+        font-size: 1rem;
+      }
     }
   </style>
 </head>
 
 <body>
 
-  <div class="container">
-
+  <div class="intro" id="intro">
     <h1>A Message For You</h1>
-
-    <p>
-      Somewhere, someone is cheering for you.
-    </p>
-
-    <button onclick="showMessage()">
-      BEGIN
-    </button>
-
-    <p id="message">
-      You are not alone. Keep moving forward.
-    </p>
-
+    <p>Somewhere, someone is cheering for you.</p>
+    <button onclick="beginMessages()">BEGIN</button>
   </div>
 
+  <div class="message-area" id="messageArea"></div>
+
   <script>
-    function showMessage() {
-      document.getElementById("message")
-        .classList.add("show");
+    // Temporary example messages.
+    // Later, we will replace these with messages from your friends.
+
+    const messages = [
+      {
+        text: "You are not alone. Keep moving forward.",
+        sender: "A friend"
+      },
+      {
+        text: "Even on difficult days, there are people rooting for you.",
+        sender: "Someone who cares"
+      },
+      {
+        text: "Your existence makes a difference.",
+        sender: "A friend"
+      },
+      {
+        text: "Take your time. You don't have to figure everything out today.",
+        sender: "Someone cheering for you"
+      },
+      {
+        text: "The world is better with you in it.",
+        sender: "A friend"
+      },
+      {
+        text: "Keep going. There are still wonderful things ahead.",
+        sender: "Someone who believes in you"
+      }
+    ];
+
+    const positions = [
+      { top: "5%", left: "5%" },
+      { top: "32%", left: "35%" },
+      { top: "62%", left: "10%" },
+      { top: "15%", left: "48%" }
+    ];
+
+    let currentMessage = 0;
+
+    function beginMessages() {
+      document.getElementById("intro").classList.add("hidden");
+
+      const area = document.getElementById("messageArea");
+      area.classList.add("active");
+
+      showNextMessage();
+
+      setInterval(showNextMessage, 3000);
+    }
+
+    function showNextMessage() {
+      const area = document.getElementById("messageArea");
+      const message = messages[currentMessage];
+      const position = positions[currentMessage % positions.length];
+
+      const card = document.createElement("div");
+      card.className = "floating-message";
+
+      card.style.top = position.top;
+      card.style.left = position.left;
+
+      const messageText = document.createElement("p");
+      messageText.textContent = message.text;
+
+      const sender = document.createElement("div");
+      sender.className = "sender";
+      sender.textContent = "— " + message.sender;
+
+      card.appendChild(messageText);
+      card.appendChild(sender);
+      area.appendChild(card);
+
+      setTimeout(() => {
+        card.remove();
+      }, 10000);
+
+      currentMessage = (currentMessage + 1) % messages.length;
     }
   </script>
 
