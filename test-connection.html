@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Supabase Connection Test</title>
+
+    <style>
+        body {
+            background: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 60px 20px;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            line-height: 1.8;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Supabase Connection Test</h1>
+
+    <p id="status">Connecting to Supabase...</p>
+
+    <pre id="result"></pre>
+
+    <script type="module">
+        const status = document.getElementById("status");
+        const result = document.getElementById("result");
+
+        try {
+            const { supabase } = await import("./supabase.js");
+
+            const { data, error } = await supabase
+                .from("site_settings")
+                .select("website_title, personal_submissions_open, community_submissions_open")
+                .eq("id", 1)
+                .single();
+
+            if (error) throw error;
+
+            status.textContent = "Connection successful!";
+            status.style.color = "#4ade80";
+
+            result.textContent = JSON.stringify(data, null, 2);
+
+        } catch (error) {
+            status.textContent = "Connection failed.";
+            status.style.color = "#ff6666";
+
+            result.textContent = error.message;
+        }
+    </script>
+
+</body>
+</html>
