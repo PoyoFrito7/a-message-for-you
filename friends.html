@@ -247,6 +247,7 @@
       }
     }
   </style>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 
 <body>
@@ -342,6 +343,8 @@
         Your message will be part of his personal gift.
       </p>
 
+      <div id="personalVerification" hidden></div>
+
       <button
         id="personalSend"
         onclick="submitMessage('personal')"
@@ -369,6 +372,7 @@
       Your message will be reviewed before it becomes part
       of his gift. The website administrator can read it.
       Please do not include sensitive personal information.
+      Cloudflare Turnstile processes connection and browser information for spam prevention.
     </div>
 
   </div>
@@ -409,6 +413,8 @@
         Share it here.
       </p>
 
+      <div id="communityVerification" hidden></div>
+
       <button
         id="communitySend"
         onclick="submitMessage('community')"
@@ -436,6 +442,7 @@
       Your message and display name will be publicly visible
       if approved. Use a nickname if you prefer, and do not
       include identifying or sensitive personal information.
+      Cloudflare Turnstile processes connection and browser information for spam prevention.
     </div>
 
   </div>
@@ -541,6 +548,39 @@
     };
 
     let settingsRequest = 0;
+    const siteKey = "0x4AAAAAAGSxakPT2WUxlKnW";
+    const widgets = {};
+    const tokens = {};
+    let widgetRetry;
+
+    function syncVerification(type) {
+      const container = document.getElementById(type + "Verification");
+      const visible = !document.getElementById(type).classList.contains("hidden");
+      container.hidden = !submissionOpen[type] || !visible;
+      if (container.hidden) {
+        if (!submitting[type] && widgets[type] !== undefined && window.turnstile) {
+          window.turnstile.remove(widgets[type]);
+          delete widgets[type];
+          delete tokens[type];
+        }
+        return;
+      }
+      if (!window.turnstile) {
+        clearTimeout(widgetRetry);
+        widgetRetry = setTimeout(() => updateForm(type), 500);
+        return;
+      }
+      if (widgets[type] !== undefined) return;
+      widgets[type] = window.turnstile.render(container, {
+        sitekey: siteKey,
+        theme: "dark",
+        action: "submit_message",
+        callback: token => { tokens[type] = token; updateForm(type); },
+        "expired-callback": () => { delete tokens[type]; updateForm(type); },
+        "error-callback": () => { delete tokens[type]; updateForm(type); setStatus(type, "Security verification unavailable. Please try again.", true); }
+      });
+    }
+
 
     /* Display submission status */
 
@@ -567,8 +607,9 @@
       document.getElementById(type + "Message").disabled =
         disabled;
 
+      syncVerification(type);
       document.getElementById(type + "Send").disabled =
-        disabled;
+        disabled || !tokens[type];
     }
 
     /* Retrieve website settings */
@@ -709,6 +750,11 @@
         return;
       }
 
+      const token = tokens[type];
+      if (!token) {
+        setStatus(type, "Please complete the security verification.", true);
+        return;
+      }
       submitting[type] = true;
 
       updateForm(type);
@@ -747,22 +793,19 @@
           return;
         }
 
-        const table = type === "personal"
-          ? "personal_messages"
-          : "community_messages";
-
-        /* Save only permitted columns */
-
-        const { error } = await supabase
-          .from(table)
-          .insert({
-            sender_name: senderName,
-            message: message
-          });
-
+        const { data, error } = await supabase.functions.invoke("submit-message", {
+          body: { type, sender_name: senderName, message, turnstile_token: token }
+        });
         if (error) {
+          let detail;
+          try { detail = await error.context.json(); } catch { /* no response body */ }
+          if (detail && typeof detail.message === "string") {
+            setStatus(type, detail.message, true);
+            return;
+          }
           throw error;
         }
+        if (data?.success !== true) throw new Error("Submission not confirmed");
 
         /* Clear the form after successful submission */
 
@@ -801,6 +844,10 @@
       } finally {
 
         submitting[type] = false;
+        delete tokens[type];
+        if (widgets[type] !== undefined && window.turnstile) {
+          window.turnstile.reset(widgets[type]);
+        }
 
         sendButton.textContent = originalButtonText;
 
