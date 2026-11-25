@@ -183,6 +183,11 @@
       box-shadow: 0 0 15px rgba(169, 199, 223, 0.1);
     }
 
+    input:disabled,
+    textarea:disabled {
+      opacity: 0.5;
+    }
+
     .small-note {
       color: #8294a2;
       font-size: 0.8rem;
@@ -195,6 +200,17 @@
       text-align: right;
       color: #8294a2;
       font-size: 0.75rem;
+    }
+
+    .status-message {
+      min-height: 24px;
+      color: #a9c7df;
+      font-size: 0.85rem;
+      line-height: 1.6;
+    }
+
+    .status-message.error {
+      color: #e4a3a3;
     }
 
     /* Mobile compatibility */
@@ -239,7 +255,7 @@
 
   <div class="screen" id="home">
 
-    <h1>A Message For You</h1>
+    <h1 id="websiteTitle">A Message For You</h1>
 
     <p>
       A little kindness can travel further than you imagine.
@@ -257,6 +273,14 @@
           Something meant especially for him.
         </p>
 
+        <div
+          class="small-note"
+          id="personalAvailability"
+          role="status"
+        >
+          Checking availability...
+        </div>
+
       </div>
 
       <div class="choice">
@@ -268,6 +292,14 @@
         <p>
           Something someone, somewhere might need to hear.
         </p>
+
+        <div
+          class="small-note"
+          id="communityAvailability"
+          role="status"
+        >
+          Checking availability...
+        </div>
 
       </div>
 
@@ -288,29 +320,41 @@
         id="personalName"
         aria-label="Your display name"
         placeholder="Your name, nickname or Steam username"
-        maxlength="50"
+        maxlength="30"
         autocomplete="off"
+        disabled
       >
 
       <textarea
         id="personalMessage"
         aria-label="Your message for him"
         placeholder="What would you like him to hear?"
-        maxlength="1500"
+        maxlength="70"
         oninput="updateCount('personalMessage', 'personalCount')"
+        disabled
       ></textarea>
 
       <div class="character-count" id="personalCount">
-        0 / 1500
+        0 / 70
       </div>
 
       <p>
         Your message will be part of his personal gift.
       </p>
 
-      <button disabled>
+      <button
+        id="personalSend"
+        onclick="submitMessage('personal')"
+        disabled
+      >
         SEND TO HIM
       </button>
+
+      <div
+        class="status-message"
+        id="personalStatus"
+        role="status"
+      ></div>
 
     </div>
 
@@ -322,7 +366,9 @@
     </button>
 
     <div class="small-note">
-      Preview only. Messages are not saved yet.
+      Your message will be reviewed before it becomes part
+      of his gift. The website administrator can read it.
+      Please do not include sensitive personal information.
     </div>
 
   </div>
@@ -340,20 +386,22 @@
         id="communityName"
         aria-label="Your public display name"
         placeholder="Your name, nickname or Steam username"
-        maxlength="50"
+        maxlength="30"
         autocomplete="off"
+        disabled
       >
 
       <textarea
         id="communityMessage"
         aria-label="Your message for the world"
         placeholder="What's something you would tell your old, current, future self?"
-        maxlength="1500"
+        maxlength="70"
         oninput="updateCount('communityMessage', 'communityCount')"
+        disabled
       ></textarea>
 
       <div class="character-count" id="communityCount">
-        0 / 1500
+        0 / 70
       </div>
 
       <p>
@@ -361,9 +409,19 @@
         Share it here.
       </p>
 
-      <button disabled>
+      <button
+        id="communitySend"
+        onclick="submitMessage('community')"
+        disabled
+      >
         SHARE WITH THE WORLD
       </button>
+
+      <div
+        class="status-message"
+        id="communityStatus"
+        role="status"
+      ></div>
 
     </div>
 
@@ -375,8 +433,28 @@
     </button>
 
     <div class="small-note">
-      Preview only. Messages are not saved yet.
+      Your message and display name will be publicly visible
+      if approved. Use a nickname if you prefer, and do not
+      include identifying or sensitive personal information.
     </div>
+
+  </div>
+
+  <!-- Successful submission screen -->
+
+  <div class="screen hidden" id="thankYou">
+
+    <h2>Thank you.</h2>
+
+    <p id="thankYouMessage"></p>
+
+    <p>
+      Your message has been received and is awaiting approval.
+    </p>
+
+    <button onclick="showScreen('home')">
+      RETURN
+    </button>
 
   </div>
 
@@ -417,9 +495,7 @@
         document.querySelectorAll(".screen");
 
       screens.forEach(screen => {
-
         screen.classList.add("hidden");
-
       });
 
       const nextScreen =
@@ -428,6 +504,10 @@
       nextScreen.classList.remove("hidden");
 
       nextScreen.scrollTop = 0;
+
+      if (window.refreshSubmissionSettings) {
+        window.refreshSubmissionSettings();
+      }
     }
 
     /* Update character counters */
@@ -443,6 +523,300 @@
       counter.textContent =
         input.value.length + " / " + input.maxLength;
     }
+
+  </script>
+
+  <script type="module">
+
+    import { supabase } from "./supabase.js";
+
+    const submissionOpen = {
+      personal: false,
+      community: false
+    };
+
+    const submitting = {
+      personal: false,
+      community: false
+    };
+
+    let settingsRequest = 0;
+
+    /* Display submission status */
+
+    function setStatus(type, message, isError = false) {
+
+      const status =
+        document.getElementById(type + "Status");
+
+      status.textContent = message;
+
+      status.classList.toggle("error", isError);
+    }
+
+    /* Enable or disable forms */
+
+    function updateForm(type) {
+
+      const disabled =
+        !submissionOpen[type] || submitting[type];
+
+      document.getElementById(type + "Name").disabled =
+        disabled;
+
+      document.getElementById(type + "Message").disabled =
+        disabled;
+
+      document.getElementById(type + "Send").disabled =
+        disabled;
+    }
+
+    /* Retrieve website settings */
+
+    async function loadSettings() {
+
+      const request = ++settingsRequest;
+
+      try {
+
+        const { data, error } = await supabase
+          .from("site_settings")
+          .select(`
+            website_title,
+            personal_submissions_open,
+            community_submissions_open
+          `)
+          .eq("id", 1)
+          .single();
+
+        if (request !== settingsRequest) {
+          return false;
+        }
+
+        if (error || !data) {
+          throw error || new Error("Settings unavailable");
+        }
+
+        document.getElementById("websiteTitle").textContent =
+          data.website_title || "A Message For You";
+
+        document.title =
+          data.website_title || "A Message For You";
+
+        submissionOpen.personal =
+          data.personal_submissions_open === true;
+
+        submissionOpen.community =
+          data.community_submissions_open === true;
+
+        for (const type of ["personal", "community"]) {
+
+          document.getElementById(
+            type + "Availability"
+          ).textContent = submissionOpen[type]
+            ? "Submissions are open."
+            : "Submissions are currently closed.";
+
+          updateForm(type);
+
+          if (!submitting[type]) {
+
+            setStatus(
+              type,
+              submissionOpen[type]
+                ? ""
+                : "Submissions are currently closed."
+            );
+          }
+        }
+
+        return true;
+
+      } catch (error) {
+
+        if (request !== settingsRequest) {
+          return false;
+        }
+
+        console.error("Unable to load settings:", error);
+
+        for (const type of ["personal", "community"]) {
+
+          submissionOpen[type] = false;
+
+          document.getElementById(
+            type + "Availability"
+          ).textContent = "Availability could not be checked.";
+
+          updateForm(type);
+
+          setStatus(
+            type,
+            "Unable to connect. Please try again later.",
+            true
+          );
+        }
+
+        return false;
+      }
+    }
+
+    /* Submit a message */
+
+    async function submitMessage(type) {
+
+      if (!["personal", "community"].includes(type)) {
+        return;
+      }
+
+      if (submitting[type] || !submissionOpen[type]) {
+        return;
+      }
+
+      const nameInput =
+        document.getElementById(type + "Name");
+
+      const messageInput =
+        document.getElementById(type + "Message");
+
+      const sendButton =
+        document.getElementById(type + "Send");
+
+      const senderName = nameInput.value.trim();
+      const message = messageInput.value.trim();
+
+      /* Validate the message */
+
+      if (!senderName || !message) {
+
+        setStatus(
+          type,
+          "Please enter your name and a message.",
+          true
+        );
+
+        return;
+      }
+
+      if (senderName.length > 30 || message.length > 70) {
+
+        setStatus(
+          type,
+          "Please stay within the character limits.",
+          true
+        );
+
+        return;
+      }
+
+      submitting[type] = true;
+
+      updateForm(type);
+
+      const originalButtonText = sendButton.textContent;
+
+      sendButton.textContent = "SENDING...";
+
+      setStatus(type, "Sending your message...");
+
+      try {
+
+        /* Check whether submissions are still open */
+
+        const settingsLoaded = await loadSettings();
+
+        if (!settingsLoaded) {
+
+          setStatus(
+            type,
+            "Unable to check availability. Please try again.",
+            true
+          );
+
+          return;
+        }
+
+        if (!submissionOpen[type]) {
+
+          setStatus(
+            type,
+            "Submissions are currently closed.",
+            true
+          );
+
+          return;
+        }
+
+        const table = type === "personal"
+          ? "personal_messages"
+          : "community_messages";
+
+        /* Save only permitted columns */
+
+        const { error } = await supabase
+          .from(table)
+          .insert({
+            sender_name: senderName,
+            message: message
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        /* Clear the form after successful submission */
+
+        nameInput.value = "";
+        messageInput.value = "";
+
+        updateCount(
+          type + "Message",
+          type + "Count"
+        );
+
+        setStatus(type, "");
+
+        document.getElementById(
+          "thankYouMessage"
+        ).textContent = type === "personal"
+          ? "Thank you for being part of his gift."
+          : "Your kindness may reach someone who needs it.";
+
+        showScreen("thankYou");
+
+      } catch (error) {
+
+        console.error("Submission failed:", error);
+
+        await loadSettings();
+
+        setStatus(
+          type,
+          submissionOpen[type]
+            ? "We couldn't confirm your submission. Please check with the administrator before retrying."
+            : "Submissions are unavailable or currently closed.",
+          true
+        );
+
+      } finally {
+
+        submitting[type] = false;
+
+        sendButton.textContent = originalButtonText;
+
+        updateForm(type);
+      }
+    }
+
+    /* Make functions available to the HTML buttons */
+
+    window.submitMessage = submitMessage;
+
+    window.refreshSubmissionSettings = loadSettings;
+
+    /* Load settings when the page opens */
+
+    loadSettings();
 
   </script>
 
