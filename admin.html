@@ -344,12 +344,24 @@
                 }
 
                 if (isAdmin !== true) {
-                    showStatus(
-                        "This account does not have administrator access.",
-                        true
-                    );
-                    return;
-                }
+    const { error: signOutError } =
+        await supabase.auth.signOut({
+            scope: "local"
+        });
+
+    passwordInput.value = "";
+
+    showLogin();
+
+    showStatus(
+        signOutError
+            ? "Access denied. Please close this browser session."
+            : "This account does not have administrator access.",
+        true
+    );
+
+    return;
+}
 
                 showDashboard();
 
