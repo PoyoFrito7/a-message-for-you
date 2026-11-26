@@ -1,0 +1,475 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+
+    <title>Administrator | A Message For You</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: #000;
+            color: #eee;
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+        }
+
+        #stars {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        .star {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 0 8px 2px rgba(255,255,255,0.35);
+            animation: twinkle ease-in-out infinite;
+        }
+
+        @keyframes twinkle {
+            0%, 100% {
+                opacity: 0;
+            }
+
+            50% {
+                opacity: 0.8;
+            }
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 420px;
+        }
+
+        .website-title {
+            text-align: center;
+            font-size: 11px;
+            letter-spacing: 4px;
+            color: #aaa;
+            margin-bottom: 32px;
+        }
+
+        .panel {
+            background: rgba(10,10,10,0.94);
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 32px;
+            box-shadow: 0 0 35px rgba(255,255,255,0.04);
+        }
+
+        h1 {
+            font-family: Georgia, serif;
+            font-size: 26px;
+            font-weight: normal;
+            letter-spacing: 2px;
+            text-align: center;
+            margin: 0 0 12px;
+        }
+
+        .subtitle {
+            color: #999;
+            font-size: 13px;
+            text-align: center;
+            line-height: 1.7;
+            margin-bottom: 30px;
+        }
+
+        label {
+            display: block;
+            font-size: 12px;
+            color: #bbb;
+            margin-bottom: 9px;
+        }
+
+        input {
+            width: 100%;
+            background: #111;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #eee;
+            padding: 13px;
+            font-size: 14px;
+            margin-bottom: 22px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        input:focus {
+            border-color: #aaa;
+            box-shadow: 0 0 12px rgba(255,255,255,0.08);
+        }
+
+        button {
+            width: 100%;
+            padding: 13px;
+            background: #ddd;
+            color: #111;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            letter-spacing: 3px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover:not(:disabled) {
+            background: #fff;
+            box-shadow: 0 0 15px rgba(255,255,255,0.2);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .status {
+            color: #ccc;
+            text-align: center;
+            font-size: 12px;
+            line-height: 1.7;
+            min-height: 20px;
+            margin-top: 18px;
+        }
+
+        .error {
+            color: #e6a0a0;
+        }
+
+        .footer {
+            text-align: center;
+            color: #777;
+            font-size: 10px;
+            letter-spacing: 2px;
+            margin-top: 28px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .star {
+                animation: none;
+                opacity: 0.4;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="stars" aria-hidden="true"></div>
+
+    <main class="container">
+
+        <div class="website-title">
+            A MESSAGE FOR YOU
+        </div>
+
+        <section id="loginPanel" class="panel">
+
+            <h1>Administrator</h1>
+
+            <p class="subtitle">
+                Welcome back.
+            </p>
+
+            <form id="loginForm">
+
+                <label for="email">Email address</label>
+
+                <input
+                    type="email"
+                    id="email"
+                    placeholder="Enter your email"
+                    autocomplete="username"
+                    required
+                >
+
+                <label for="password">Password</label>
+
+                <input
+                    type="password"
+                    id="password"
+                    placeholder="Enter your password"
+                    autocomplete="current-password"
+                    required
+                >
+
+                <button id="loginButton" type="submit" disabled>
+                    SIGN IN
+                </button>
+
+            </form>
+
+            <p id="loginStatus" class="status" role="status">
+                Checking your session...
+            </p>
+
+        </section>
+
+        <section id="dashboardPanel" class="panel hidden">
+
+            <h1>Welcome back.</h1>
+
+            <p class="subtitle">
+                Administrator access verified.
+                <br><br>
+                Your dashboard is coming soon.
+            </p>
+
+            <button id="logoutButton" type="button">
+                SIGN OUT
+            </button>
+
+            <p id="dashboardStatus" class="status" role="status"></p>
+
+        </section>
+
+        <div class="footer">
+            ADMINISTRATOR ACCESS
+        </div>
+
+    </main>
+
+    <script>
+        const stars = document.getElementById("stars");
+
+        for (let i = 0; i < 35; i++) {
+            const star = document.createElement("div");
+
+            star.className = "star";
+
+            const size = Math.random() * 1.5 + 0.5;
+
+            star.style.width = size + "px";
+            star.style.height = size + "px";
+            star.style.left = Math.random() * 100 + "%";
+            star.style.top = Math.random() * 100 + "%";
+            star.style.animationDuration =
+                Math.random() * 6 + 4 + "s";
+            star.style.animationDelay =
+                -Math.random() * 10 + "s";
+
+            stars.appendChild(star);
+        }
+    </script>
+
+    <script type="module">
+
+        import { supabase } from "./supabase.js";
+
+        const loginPanel = document.getElementById("loginPanel");
+        const dashboardPanel = document.getElementById("dashboardPanel");
+
+        const loginForm = document.getElementById("loginForm");
+        const loginButton = document.getElementById("loginButton");
+        const logoutButton = document.getElementById("logoutButton");
+
+        const loginStatus = document.getElementById("loginStatus");
+        const dashboardStatus = document.getElementById("dashboardStatus");
+
+        const emailInput = document.getElementById("email");
+        const passwordInput = document.getElementById("password");
+
+        let verificationVersion = 0;
+        let busy = false;
+
+        function showStatus(message, isError = false) {
+            loginStatus.textContent = message;
+            loginStatus.classList.toggle("error", isError);
+        }
+
+        function showLogin() {
+            dashboardPanel.classList.add("hidden");
+            loginPanel.classList.remove("hidden");
+            loginButton.disabled = busy;
+        }
+
+        function showDashboard() {
+            loginPanel.classList.add("hidden");
+            dashboardPanel.classList.remove("hidden");
+            dashboardStatus.textContent = "";
+        }
+
+        async function verifyAdministrator() {
+
+            const version = ++verificationVersion;
+
+            showLogin();
+            loginButton.disabled = true;
+            showStatus("Verifying administrator access...");
+
+            try {
+
+                const { data, error } =
+                    await supabase.auth.getUser();
+
+                if (version !== verificationVersion) return;
+
+                if (error || !data.user) {
+                    showStatus("");
+                    return;
+                }
+
+                const { data: isAdmin, error: roleError } =
+                    await supabase.rpc("has_role", {
+                        required_role: "admin"
+                    });
+
+                if (version !== verificationVersion) return;
+
+                if (roleError) {
+                    showStatus(
+                        "Unable to verify administrator access.",
+                        true
+                    );
+                    return;
+                }
+
+                if (isAdmin !== true) {
+                    showStatus(
+                        "This account does not have administrator access.",
+                        true
+                    );
+                    return;
+                }
+
+                showDashboard();
+
+            } catch {
+
+                if (version === verificationVersion) {
+                    showStatus(
+                        "Unable to connect. Please try again.",
+                        true
+                    );
+                }
+
+            } finally {
+
+                if (version === verificationVersion) {
+                    loginButton.disabled = busy;
+                }
+            }
+        }
+
+        loginForm.addEventListener("submit", async (event) => {
+
+            event.preventDefault();
+
+            if (busy) return;
+
+            busy = true;
+            loginButton.disabled = true;
+
+            showStatus("Signing in...");
+
+            try {
+
+                const { error } =
+                    await supabase.auth.signInWithPassword({
+                        email: emailInput.value.trim(),
+                        password: passwordInput.value
+                    });
+
+                passwordInput.value = "";
+
+                if (error) {
+                    showStatus(
+                        "Unable to sign in. Please check your credentials.",
+                        true
+                    );
+                    return;
+                }
+
+                await verifyAdministrator();
+
+            } catch {
+
+                showStatus(
+                    "Unable to connect. Please try again.",
+                    true
+                );
+
+            } finally {
+
+                passwordInput.value = "";
+                busy = false;
+                loginButton.disabled = false;
+            }
+        });
+
+        logoutButton.addEventListener("click", async () => {
+
+            if (busy) return;
+
+            busy = true;
+            verificationVersion++;
+            logoutButton.disabled = true;
+
+            try {
+
+                const { error } =
+                    await supabase.auth.signOut();
+
+                if (error) {
+                    dashboardStatus.textContent =
+                        "Unable to sign out. Please try again.";
+                    return;
+                }
+
+                emailInput.value = "";
+                passwordInput.value = "";
+
+                showLogin();
+                showStatus("You have been signed out.");
+
+            } catch {
+
+                dashboardStatus.textContent =
+                    "Unable to sign out. Please try again.";
+
+            } finally {
+
+                busy = false;
+                loginButton.disabled = false;
+                logoutButton.disabled = false;
+            }
+        });
+
+        supabase.auth.onAuthStateChange((event) => {
+
+            if (event === "SIGNED_OUT") {
+                verificationVersion++;
+                showLogin();
+                showStatus("You have been signed out.");
+            }
+
+            if (event === "SIGNED_IN" && !busy) {
+                setTimeout(() => verifyAdministrator(), 0);
+            }
+        });
+
+        await verifyAdministrator();
+
+    </script>
+
+</body>
+</html>
