@@ -711,10 +711,33 @@
         const messageViews = [...dashboardPanel.querySelectorAll('[data-view="personal"], [data-view="community"]')];
         const listVersions = new Map();
         const pageSize = 25;
+        let moderationBusy = false;
+        async function changeApproval(view, table, row, status) {
+            if (moderationBusy || dashboardPanel.classList.contains('hidden')) return;
+            moderationBusy = true;
+            const sessionVersion = verificationVersion;
+            const notice = view.querySelector('.moderation-notice');
+            const active = () => sessionVersion === verificationVersion && !dashboardPanel.classList.contains('hidden');
+            notice.textContent = 'Saving...';
+            try {
+                const {data, error} = await supabase.from(table)
+                    .update({approved: status === 'pending'})
+                    .eq('id', row.id).eq('archived', false).eq('approved', status === 'approved')
+                    .select('id').single();
+                if (error || !data) throw new Error('Update failed');
+                if (active()) notice.textContent = status === 'pending' ? 'Message approved.' : 'Message returned to pending.';
+            } catch {
+                if (active()) notice.textContent = 'Unable to confirm the change. Check the refreshed list before retrying.';
+            } finally {
+                moderationBusy = false;
+                if (active()) { await Promise.all([loadOverview(), loadMessages(view)]); refreshVisibleMessages(); }
+            }
+        }
         function clearMessageLists() {
             for (const view of messageViews) {
                 listVersions.set(view, (listVersions.get(view) || 0) + 1);
                 view.querySelector('.message-list').replaceChildren();
+                view.querySelector('.moderation-notice').textContent = '';
                 view.querySelector('.load-more').classList.add('hidden');
                 for (const tab of view.querySelectorAll('[data-status]')) tab.textContent = tab.dataset.status[0].toUpperCase() + tab.dataset.status.slice(1) + ' (—)';
             }
@@ -752,7 +775,7 @@
                     const date = document.createElement('p'); date.className = 'muted'; date.textContent = new Date(row.created_at).toLocaleString();
                     const actions = document.createElement('div'); actions.className = 'tabs';
                     for (const label of status === 'pending' ? ['Approve','Archive'] : status === 'approved' ? ['Unapprove','Archive'] : ['Restore','Delete permanently']) {
-                        const button = document.createElement('button'); button.type='button'; button.disabled=true; button.textContent=label; actions.append(button);
+                        const button = document.createElement('button'); button.type='button'; button.disabled= !['Approve','Unapprove'].includes(label); button.textContent=label; if (!button.disabled) button.addEventListener('click',()=>void changeApproval(view,table,row,status)); actions.append(button);
                     }
                     card.append(message,name,date,actions); list.append(card);
                 }
@@ -766,6 +789,7 @@
             }
         }
         for (const view of messageViews) {
+            const notice = document.createElement('p'); notice.className = 'muted moderation-notice'; notice.setAttribute('role','status'); view.querySelector('.message-list').before(notice);
             const tabs = [...view.querySelectorAll('[data-status]')];
             for (const tab of tabs) tab.addEventListener('click', () => {
                 tabs.forEach(t => t.setAttribute('aria-pressed',String(t===tab)));
