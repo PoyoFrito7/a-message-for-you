@@ -302,8 +302,7 @@
                         <button type="button" data-status="approved" aria-pressed="false">Approved (—)</button>
                         <button type="button" data-status="archived" aria-pressed="false">Archived (—)</button>
                     </div>
-                    <div class="tile empty"><p class="message-state">Pending messages</p><p class="muted">Awaiting database connection.</p></div>
-                    <div class="tile"><p class="muted">Example card — not a real submission</p><p style="text-align:center;font-family:Georgia,serif">Even on difficult days, remember how far you've come.</p><p class="muted" style="text-align:center">— Friend's username</p><div class="tabs example-actions"></div></div>
+                    <div class="message-list" aria-live="polite"></div><button type="button" class="save load-more hidden">LOAD MORE</button>
                 </section>
                 <section data-view="community" class="hidden">
                     <h1>Community messages</h1><p class="muted">Manage community messages.</p>
@@ -312,8 +311,7 @@
                         <button type="button" data-status="approved" aria-pressed="false">Approved (—)</button>
                         <button type="button" data-status="archived" aria-pressed="false">Archived (—)</button>
                     </div>
-                    <div class="tile empty"><p class="message-state">Pending messages</p><p class="muted">Awaiting database connection.</p></div>
-                    <div class="tile"><p class="muted">Example card — not a real submission</p><p style="text-align:center;font-family:Georgia,serif">Even on difficult days, remember how far you've come.</p><p class="muted" style="text-align:center">— Friend's username</p><div class="tabs example-actions"></div></div>
+                    <div class="message-list" aria-live="polite"></div><button type="button" class="save load-more hidden">LOAD MORE</button>
                 </section>
                 <section data-view="settings" class="hidden">
                     <h1>Settings</h1><p class="muted">Manage your website configuration.</p>
@@ -505,6 +503,7 @@
         }
         function showLogin() {
             resetOverview();
+            clearMessageLists();
             dashboardPanel.classList.add("hidden");
             dashboardPanel.closest("main").classList.remove("dashboard-mode");
             loginPanel.classList.remove("hidden");
@@ -517,6 +516,7 @@
             dashboardPanel.closest("main").classList.add("dashboard-mode");
             dashboardStatus.textContent = "";
             void loadOverview();
+            refreshVisibleMessages();
         }
 
         async function verifyAdministrator() {
@@ -703,31 +703,77 @@
                 dashboardPanel.querySelectorAll("[data-view]").forEach(view => {
                     view.classList.toggle("hidden", view.dataset.view !== button.dataset.page);
                 });
+                refreshVisibleMessages();
                 nav.classList.add("mobile-collapsed");
                 menu.setAttribute("aria-expanded", "false");
             });
         });
-        dashboardPanel.querySelectorAll("[data-view]").forEach(view => {
-            const tabs = view.querySelectorAll("[data-status]");
-            if (!tabs.length) return;
-            function selectStatus(button) {
-                tabs.forEach(tab => tab.setAttribute("aria-pressed", String(tab === button)));
-                const status = button.dataset.status;
-                view.querySelector(".message-state").textContent = status[0].toUpperCase() + status.slice(1) + " messages";
-                const actions = view.querySelector(".example-actions");
-                actions.replaceChildren();
-                const labels = status === "pending" ? ["Approve", "Archive"] : status === "approved" ? ["Unapprove", "Archive"] : ["Restore", "Delete permanently"];
-                labels.forEach(label => {
-                    const action = document.createElement("button");
-                    action.type = "button";
-                    action.disabled = true;
-                    action.textContent = label;
-                    actions.appendChild(action);
-                });
+        const messageViews = [...dashboardPanel.querySelectorAll('[data-view="personal"], [data-view="community"]')];
+        const listVersions = new Map();
+        const pageSize = 25;
+        function clearMessageLists() {
+            for (const view of messageViews) {
+                listVersions.set(view, (listVersions.get(view) || 0) + 1);
+                view.querySelector('.message-list').replaceChildren();
+                view.querySelector('.load-more').classList.add('hidden');
+                for (const tab of view.querySelectorAll('[data-status]')) tab.textContent = tab.dataset.status[0].toUpperCase() + tab.dataset.status.slice(1) + ' (—)';
             }
-            tabs.forEach(tab => tab.addEventListener("click", () => selectStatus(tab)));
-            selectStatus(tabs[0]);
-        });
+        }
+        function refreshVisibleMessages() {
+            for (const view of messageViews) if (!view.classList.contains('hidden')) void loadMessages(view);
+        }
+        async function loadMessages(view, offset = 0) {
+            const version = (listVersions.get(view) || 0) + 1;
+            listVersions.set(view, version);
+            const list = view.querySelector('.message-list');
+            const more = view.querySelector('.load-more');
+            const tabs = [...view.querySelectorAll('[data-status]')];
+            const status = tabs.find(t => t.getAttribute('aria-pressed') === 'true').dataset.status;
+            const table = view.dataset.view === 'personal' ? 'personal_messages' : 'community_messages';
+            const current = () => listVersions.get(view) === version && !dashboardPanel.classList.contains('hidden');
+            more.classList.add('hidden');
+            if (!offset) list.textContent = 'Loading messages...';
+            try {
+                const filter = (query, state) => query.eq('approved', state === 'approved').eq('archived', state === 'archived');
+                const results = await Promise.all([
+                    ...tabs.map(t => filter(supabase.from(table).select('id',{count:'exact',head:true}),t.dataset.status)),
+                    filter(supabase.from(table).select('id,sender_name,message,created_at'),status).order('created_at',{ascending:false}).order('id',{ascending:false}).range(offset,offset+pageSize-1)
+                ]);
+                if (!current()) return;
+                if (results.some(r => r.error) || results.slice(0,3).some(r => !Number.isInteger(r.count))) throw new Error('Read failed');
+                tabs.forEach((t,i) => t.textContent = t.dataset.status[0].toUpperCase()+t.dataset.status.slice(1)+' ('+results[i].count+')');
+                const rows = results[3].data;
+                if (!offset) list.replaceChildren();
+                if (!rows.length && !offset) list.textContent = 'No '+status+' messages.';
+                for (const row of rows) {
+                    const card = document.createElement('div'); card.className = 'tile'; card.style.marginBottom = '12px';
+                    const message = document.createElement('p'); message.style.cssText = 'text-align:center;font-family:Georgia,serif;overflow-wrap:anywhere;white-space:pre-wrap'; message.textContent = row.message;
+                    const name = document.createElement('p'); name.className = 'muted'; name.style.cssText = 'text-align:center;overflow-wrap:anywhere'; name.textContent = '— '+row.sender_name;
+                    const date = document.createElement('p'); date.className = 'muted'; date.textContent = new Date(row.created_at).toLocaleString();
+                    const actions = document.createElement('div'); actions.className = 'tabs';
+                    for (const label of status === 'pending' ? ['Approve','Archive'] : status === 'approved' ? ['Unapprove','Archive'] : ['Restore','Delete permanently']) {
+                        const button = document.createElement('button'); button.type='button'; button.disabled=true; button.textContent=label; actions.append(button);
+                    }
+                    card.append(message,name,date,actions); list.append(card);
+                }
+                const total = results[tabs.findIndex(t=>t.dataset.status===status)].count;
+                more.dataset.offset = String(offset+rows.length);
+                more.classList.toggle('hidden', !rows.length || offset+rows.length>=total);
+            } catch {
+                if (!current()) return;
+                list.textContent = 'Unable to load messages. Select a tab to retry.';
+                tabs.forEach(t => t.textContent = t.dataset.status[0].toUpperCase()+t.dataset.status.slice(1)+' (—)');
+            }
+        }
+        for (const view of messageViews) {
+            const tabs = [...view.querySelectorAll('[data-status]')];
+            for (const tab of tabs) tab.addEventListener('click', () => {
+                tabs.forEach(t => t.setAttribute('aria-pressed',String(t===tab)));
+                void loadMessages(view);
+            });
+            const more = view.querySelector('.load-more');
+            more.addEventListener('click',()=>void loadMessages(view,Number(more.dataset.offset)));
+        }
 
         await verifyAdministrator();
 
