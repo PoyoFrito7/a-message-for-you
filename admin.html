@@ -317,7 +317,7 @@
                 </section>
                 <section data-view="settings" class="hidden">
                     <h1>Settings</h1><p class="muted">Manage your website configuration.</p>
-                    <div class="tile"><label for="siteTitle">Website title</label><input id="siteTitle" value="A Message For You" disabled><button class="save" type="button" disabled>SAVE CHANGES</button><p class="muted">Read-only preview. Saving will be enabled in the next step.</p></div>
+                    <div class="tile"><label for="siteTitle">Website title</label><input id="siteTitle" value="A Message For You" disabled><button id="saveTitle" class="save" type="button" disabled>SAVE CHANGES</button><p class="muted">Change the title displayed on connected website pages.</p><p id="titleNotice" class="muted" role="status"></p></div>
                 </section>
             </div>
         </section>
@@ -384,16 +384,51 @@
         const siteTitle = document.getElementById('siteTitle');
         let readVersion = 0;
         let savingSwitch = false;
+        let savingTitle = false;
+        let savedTitle = null;
+        const saveTitle = document.getElementById('saveTitle');
+        const titleNotice = document.getElementById('titleNotice');
+        function updateTitleControls() {
+            siteTitle.disabled = savedTitle === null || savingTitle || savingSwitch;
+            saveTitle.disabled = siteTitle.disabled || !siteTitle.value.trim() || siteTitle.value.trim() === savedTitle;
+        }
+        siteTitle.addEventListener('input', updateTitleControls);
+        saveTitle.addEventListener('click', async () => {
+            if (saveTitle.disabled || dashboardPanel.classList.contains('hidden')) return;
+            const next = siteTitle.value.trim();
+            const version = readVersion;
+            savingTitle = true;
+            updateTitleControls();
+            switches.forEach(el => el.disabled = true);
+            titleNotice.textContent = 'Saving...';
+            let notice;
+            try {
+                const {data,error} = await supabase.from('site_settings')
+                    .update({website_title:next}).eq('id',1).select('website_title').single();
+                if (error || data?.website_title !== next) throw new Error('Save failed');
+                notice = 'Website title saved.';
+            } catch {
+                notice = 'Unable to confirm save. Checking saved settings again.';
+            } finally {
+                savingTitle = false;
+                if (version === readVersion && !dashboardPanel.classList.contains('hidden')) {
+                    const expected = readVersion + 1;
+                    await loadOverview();
+                    if (readVersion === expected && !dashboardPanel.classList.contains('hidden')) titleNotice.textContent = notice;
+                }
+            }
+        });
         const switchFields = ['personal_submissions_open','community_submissions_open'];
         const switchNotice = document.createElement('p');
         switchNotice.className = 'muted';
         switchNotice.setAttribute('role','status');
         switches[1].closest('.switch-row').after(switchNotice);
         switches.forEach((button,i) => button.addEventListener('click', async () => {
-            if (savingSwitch || button.disabled || dashboardPanel.classList.contains('hidden')) return;
+            if (savingSwitch || savingTitle || button.disabled || dashboardPanel.classList.contains('hidden')) return;
             const next = button.getAttribute('aria-checked') !== 'true';
             if (next && !window.confirm(`Open ${i === 0 ? 'personal' : 'community'} submissions to visitors?`)) return;
             savingSwitch = true;
+            updateTitleControls();
             const version = readVersion;
             switches.forEach(el => el.disabled = true);
             switchNotice.textContent = 'Saving...';
@@ -420,7 +455,10 @@
             switches.forEach(el => { el.disabled = true; el.setAttribute('aria-checked', 'false'); });
             switchNotice.textContent = '';
             switchLabels.forEach(el => el.textContent = 'Status unavailable');
+            savedTitle = null;
             siteTitle.value = '';
+            titleNotice.textContent = '';
+            updateTitleControls();
             recent.textContent = message;
         }
         async function loadOverview() {
@@ -447,9 +485,11 @@
                 [settings.personal_submissions_open,settings.community_submissions_open].forEach((open,i) => {
                     switches[i].setAttribute('aria-checked',String(open));
                     switchLabels[i].textContent = open ? 'Currently open' : 'Currently closed';
-                    switches[i].disabled = savingSwitch;
+                    switches[i].disabled = savingSwitch || savingTitle;
                 });
-                siteTitle.value = settings.website_title ?? '';
+                savedTitle = settings.website_title ?? '';
+                siteTitle.value = savedTitle;
+                updateTitleControls();
                 const messages = results.slice(7).flatMap((r,i) => r.data.map(m => ({...m, category:i === 0 ? 'Personal' : 'Community'}))).sort((a,b) => new Date(b.created_at)-new Date(a.created_at)).slice(0,5);
                 recent.replaceChildren();
                 if (!messages.length) recent.textContent = 'No recent messages.';
