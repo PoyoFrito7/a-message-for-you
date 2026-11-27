@@ -714,18 +714,19 @@
         let moderationBusy = false;
         async function changeModeration(view, table, row, status, label) {
             if (moderationBusy || dashboardPanel.classList.contains('hidden')) return;
+            if (label === 'Delete permanently' && (status !== 'archived' || !window.confirm('Permanently delete this archived message? This cannot be undone through the dashboard.'))) return;
             moderationBusy = true;
             const sessionVersion = verificationVersion;
             const notice = view.querySelector('.moderation-notice');
             const active = () => sessionVersion === verificationVersion && !dashboardPanel.classList.contains('hidden');
             notice.textContent = 'Saving...';
             try {
-                const {data, error} = await supabase.from(table)
-                    .update({approved: label === 'Approve', archived: label === 'Archive'})
+                const query = label === 'Delete permanently' ? supabase.from(table).delete() : supabase.from(table).update({approved: label === 'Approve', archived: label === 'Archive'});
+                const {data, error} = await query
                     .eq('id', row.id).eq('archived', status === 'archived').eq('approved', status === 'approved')
                     .select('id').single();
                 if (error || !data) throw new Error('Update failed');
-                if (active()) notice.textContent = label === 'Approve' ? 'Message approved.' : label === 'Archive' ? 'Message archived.' : 'Message returned to pending.';
+                if (active()) notice.textContent = label === 'Delete permanently' ? 'Message permanently deleted.' : label === 'Approve' ? 'Message approved.' : label === 'Archive' ? 'Message archived.' : 'Message returned to pending.';
             } catch {
                 if (active()) notice.textContent = 'Unable to confirm the change. Check the refreshed list before retrying.';
             } finally {
@@ -775,7 +776,7 @@
                     const date = document.createElement('p'); date.className = 'muted'; date.textContent = new Date(row.created_at).toLocaleString();
                     const actions = document.createElement('div'); actions.className = 'tabs';
                     for (const label of status === 'pending' ? ['Approve','Archive'] : status === 'approved' ? ['Unapprove','Archive'] : ['Restore','Delete permanently']) {
-                        const button = document.createElement('button'); button.type='button'; button.disabled= !['Approve','Unapprove','Archive','Restore'].includes(label); button.textContent=label; if (!button.disabled) button.addEventListener('click',()=>void changeModeration(view,table,row,status,label)); actions.append(button);
+                        const button = document.createElement('button'); button.type='button'; button.disabled= !['Approve','Unapprove','Archive','Restore','Delete permanently'].includes(label); button.textContent=label; if (!button.disabled) button.addEventListener('click',()=>void changeModeration(view,table,row,status,label)); actions.append(button);
                     }
                     card.append(message,name,date,actions); list.append(card);
                 }
