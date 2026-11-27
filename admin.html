@@ -291,7 +291,7 @@
                     <h2>Submission controls</h2>
                     <div class="tile switch-row"><div>Personal submissions<br><span class="muted">Not connected yet</span></div><button type="button" class="switch" role="switch" aria-label="Personal submissions" aria-checked="false" disabled></button></div>
                     <div class="tile switch-row"><div>Community submissions<br><span class="muted">Not connected yet</span></div><button type="button" class="switch" role="switch" aria-label="Community submissions" aria-checked="false" disabled></button></div>
-                    <h2>Recent activity</h2><div class="tile muted">Awaiting database connection.</div>
+                    <h2>Recent activity</h2><div id="recentActivity" class="tile muted" aria-live="polite">Awaiting database connection.</div>
                 </section>
                 <section data-view="personal" class="hidden">
                     <h1>Personal messages</h1><p class="muted">Manage personal messages.</p>
@@ -315,7 +315,7 @@
                 </section>
                 <section data-view="settings" class="hidden">
                     <h1>Settings</h1><p class="muted">Manage your website configuration.</p>
-                    <div class="tile"><label for="siteTitle">Website title</label><input id="siteTitle" value="A Message For You" disabled><button class="save" type="button" disabled>SAVE CHANGES</button><p class="muted">Preview only. Settings are not connected yet.</p></div>
+                    <div class="tile"><label for="siteTitle">Website title</label><input id="siteTitle" value="A Message For You" disabled><button class="save" type="button" disabled>SAVE CHANGES</button><p class="muted">Read-only preview. Saving will be enabled in the next step.</p></div>
                 </section>
             </div>
         </section>
@@ -374,7 +374,62 @@
             loginStatus.classList.toggle("error", isError);
         }
 
+        const overview = dashboardPanel.querySelector('[data-view="overview"]');
+        const numbers = overview.querySelectorAll('.number');
+        const switches = overview.querySelectorAll('.switch');
+        const switchLabels = overview.querySelectorAll('.switch-row .muted');
+        const recent = document.getElementById('recentActivity');
+        const siteTitle = document.getElementById('siteTitle');
+        let readVersion = 0;
+        function resetOverview(message = 'Loading database information...') {
+            readVersion++;
+            numbers.forEach(el => el.textContent = '—');
+            switches.forEach(el => el.setAttribute('aria-checked', 'false'));
+            switchLabels.forEach(el => el.textContent = 'Status unavailable');
+            siteTitle.value = '';
+            recent.textContent = message;
+        }
+        async function loadOverview() {
+            resetOverview();
+            const version = readVersion;
+            const tables = ['personal_messages', 'community_messages'];
+            const states = [[false,false],[true,false],[false,true]];
+            try {
+                const requests = [supabase.from('site_settings').select('website_title,personal_submissions_open,community_submissions_open').eq('id',1).single()];
+                for (const table of tables) {
+                    for (const [approved, archived] of states) {
+                        requests.push(supabase.from(table).select('id',{count:'exact',head:true}).eq('approved',approved).eq('archived',archived));
+                    }
+                }
+                for (const table of tables) {
+                    requests.push(supabase.from(table).select('sender_name,message,created_at').order('created_at',{ascending:false}).limit(5));
+                }
+                const results = await Promise.all(requests);
+                if (version !== readVersion || dashboardPanel.classList.contains('hidden')) return;
+                if (results.some(r => r.error) || results.slice(1,7).some(r => !Number.isInteger(r.count))) throw new Error('Read failed');
+                const settings = results[0].data;
+                if (!settings || typeof settings.personal_submissions_open !== 'boolean' || typeof settings.community_submissions_open !== 'boolean') throw new Error('Settings unavailable');
+                numbers.forEach((el,i) => el.textContent = String(results[1+i].count + results[4+i].count));
+                [settings.personal_submissions_open,settings.community_submissions_open].forEach((open,i) => {
+                    switches[i].setAttribute('aria-checked',String(open));
+                    switchLabels[i].textContent = open ? 'Currently open (read-only)' : 'Currently closed (read-only)';
+                });
+                siteTitle.value = settings.website_title ?? '';
+                const messages = results.slice(7).flatMap((r,i) => r.data.map(m => ({...m, category:i === 0 ? 'Personal' : 'Community'}))).sort((a,b) => new Date(b.created_at)-new Date(a.created_at)).slice(0,5);
+                recent.replaceChildren();
+                if (!messages.length) recent.textContent = 'No recent messages.';
+                for (const m of messages) {
+                    const line = document.createElement('p');
+                    line.style.overflowWrap = 'anywhere';
+                    line.textContent = `${m.category} · ${m.sender_name} — ${m.message} · ${new Date(m.created_at).toLocaleString()}`;
+                    recent.appendChild(line);
+                }
+            } catch {
+                if (version === readVersion) resetOverview('Unable to load database information. Refresh to try again.');
+            }
+        }
         function showLogin() {
+            resetOverview();
             dashboardPanel.classList.add("hidden");
             dashboardPanel.closest("main").classList.remove("dashboard-mode");
             loginPanel.classList.remove("hidden");
@@ -386,6 +441,7 @@
             dashboardPanel.classList.remove("hidden");
             dashboardPanel.closest("main").classList.add("dashboard-mode");
             dashboardStatus.textContent = "";
+            void loadOverview();
         }
 
         async function verifyAdministrator() {
