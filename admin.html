@@ -189,6 +189,8 @@
         .number { display:block; font-size:30px; margin-top:12px; }
         .switch-row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
         .switch { width:44px; height:24px; padding:0; border-radius:20px; background:#333; border:1px solid #555; flex-shrink:0; position:relative; }
+        .switch[aria-checked="true"] { background:#365b45; border-color:#648d73; }
+        .switch[aria-checked="true"]::before { left:22px; background:#b0d8bd; }
         .switch::before { content:''; position:absolute; left:4px; top:3px; width:16px; height:16px; border-radius:50%; background:#aaa; }
         .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:24px 0; }
         .tabs button { width:auto; flex:1; text-align:center; }
@@ -381,10 +383,42 @@
         const recent = document.getElementById('recentActivity');
         const siteTitle = document.getElementById('siteTitle');
         let readVersion = 0;
+        let savingSwitch = false;
+        const switchFields = ['personal_submissions_open','community_submissions_open'];
+        const switchNotice = document.createElement('p');
+        switchNotice.className = 'muted';
+        switchNotice.setAttribute('role','status');
+        switches[1].closest('.switch-row').after(switchNotice);
+        switches.forEach((button,i) => button.addEventListener('click', async () => {
+            if (savingSwitch || button.disabled || dashboardPanel.classList.contains('hidden')) return;
+            const next = button.getAttribute('aria-checked') !== 'true';
+            if (next && !window.confirm(`Open ${i === 0 ? 'personal' : 'community'} submissions to visitors?`)) return;
+            savingSwitch = true;
+            const version = readVersion;
+            switches.forEach(el => el.disabled = true);
+            switchNotice.textContent = 'Saving...';
+            let notice;
+            try {
+                const {data,error} = await supabase.from('site_settings')
+                    .update({[switchFields[i]]:next}).eq('id',1)
+                    .select(switchFields[i]).single();
+                if (error || data?.[switchFields[i]] !== next) throw new Error('Save failed');
+                notice = 'Submission setting saved.';
+            } catch {
+                notice = 'Unable to confirm save. Checking saved settings again.';
+            } finally {
+                savingSwitch = false;
+                if (version === readVersion && !dashboardPanel.classList.contains('hidden')) {
+                    await loadOverview();
+                    if (!dashboardPanel.classList.contains('hidden')) switchNotice.textContent = notice;
+                }
+            }
+        }));
         function resetOverview(message = 'Loading database information...') {
             readVersion++;
             numbers.forEach(el => el.textContent = '—');
-            switches.forEach(el => el.setAttribute('aria-checked', 'false'));
+            switches.forEach(el => { el.disabled = true; el.setAttribute('aria-checked', 'false'); });
+            switchNotice.textContent = '';
             switchLabels.forEach(el => el.textContent = 'Status unavailable');
             siteTitle.value = '';
             recent.textContent = message;
@@ -412,7 +446,8 @@
                 numbers.forEach((el,i) => el.textContent = String(results[1+i].count + results[4+i].count));
                 [settings.personal_submissions_open,settings.community_submissions_open].forEach((open,i) => {
                     switches[i].setAttribute('aria-checked',String(open));
-                    switchLabels[i].textContent = open ? 'Currently open (read-only)' : 'Currently closed (read-only)';
+                    switchLabels[i].textContent = open ? 'Currently open' : 'Currently closed';
+                    switches[i].disabled = savingSwitch;
                 });
                 siteTitle.value = settings.website_title ?? '';
                 const messages = results.slice(7).flatMap((r,i) => r.data.map(m => ({...m, category:i === 0 ? 'Personal' : 'Community'}))).sort((a,b) => new Date(b.created_at)-new Date(a.created_at)).slice(0,5);
