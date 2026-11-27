@@ -712,7 +712,7 @@
         const listVersions = new Map();
         const pageSize = 25;
         let moderationBusy = false;
-        async function changeApproval(view, table, row, status) {
+        async function changeModeration(view, table, row, status, label) {
             if (moderationBusy || dashboardPanel.classList.contains('hidden')) return;
             moderationBusy = true;
             const sessionVersion = verificationVersion;
@@ -721,11 +721,11 @@
             notice.textContent = 'Saving...';
             try {
                 const {data, error} = await supabase.from(table)
-                    .update({approved: status === 'pending'})
-                    .eq('id', row.id).eq('archived', false).eq('approved', status === 'approved')
+                    .update({approved: label === 'Approve', archived: label === 'Archive'})
+                    .eq('id', row.id).eq('archived', status === 'archived').eq('approved', status === 'approved')
                     .select('id').single();
                 if (error || !data) throw new Error('Update failed');
-                if (active()) notice.textContent = status === 'pending' ? 'Message approved.' : 'Message returned to pending.';
+                if (active()) notice.textContent = label === 'Approve' ? 'Message approved.' : label === 'Archive' ? 'Message archived.' : 'Message returned to pending.';
             } catch {
                 if (active()) notice.textContent = 'Unable to confirm the change. Check the refreshed list before retrying.';
             } finally {
@@ -775,7 +775,7 @@
                     const date = document.createElement('p'); date.className = 'muted'; date.textContent = new Date(row.created_at).toLocaleString();
                     const actions = document.createElement('div'); actions.className = 'tabs';
                     for (const label of status === 'pending' ? ['Approve','Archive'] : status === 'approved' ? ['Unapprove','Archive'] : ['Restore','Delete permanently']) {
-                        const button = document.createElement('button'); button.type='button'; button.disabled= !['Approve','Unapprove'].includes(label); button.textContent=label; if (!button.disabled) button.addEventListener('click',()=>void changeApproval(view,table,row,status)); actions.append(button);
+                        const button = document.createElement('button'); button.type='button'; button.disabled= !['Approve','Unapprove','Archive','Restore'].includes(label); button.textContent=label; if (!button.disabled) button.addEventListener('click',()=>void changeModeration(view,table,row,status,label)); actions.append(button);
                     }
                     card.append(message,name,date,actions); list.append(card);
                 }
